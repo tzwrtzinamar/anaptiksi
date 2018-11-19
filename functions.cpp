@@ -9,6 +9,14 @@ int point::getID(){
 	return id;
 }
 
+void point::setFlag(int F){
+	flag = F;
+}
+
+int point::getFlag(){
+	return flag;
+}
+
 void point::setCoordinates(vector<long double> p){
 	coordinates.assign(p.begin(),p.end());
 }
@@ -29,6 +37,7 @@ vector<point> read_n_store(string filename){
 	while(getline(myfile,line,'\n')){
 		stringstream ss ( line );
 		point mypoint;
+		mypoint.setFlag(0);
 		getline(ss,line,',');
 		mypoint.setID(atoi(line.c_str()));
 		while(getline(ss,line,',')){
@@ -92,29 +101,40 @@ vector<point> random_init(int k_cluster,vector<point> v){
 
 //Initialization with K-means
 
-vector<point> kmeans_init(int k_cluster,vector<point> v){
+vector<point> kmeans_init(int k_cluster,vector<point> v,int metric_function){
 	vector<point> centroids;
+	vector<long double> min;
 	vector<long double> D;
-	int temp=0;
+	int temp=0,counter=1;
 	random_device rd; 
     mt19937 eng(rd()); 
     uniform_int_distribution<> distr(1,v.size());
     temp = distr(eng);
-    for(int i=0; i<v.size(); i++){
-  		if(v[i].getID() == temp){
-  			centroids.push_back(v[i]);
+  	v[temp].setFlag(1);
+  	centroids.push_back(v[temp]);
+  	for(int j=1; j<k_cluster; j++){
+  		for(int i=0; i<v.size(); i++){
+  			if(v[i].getFlag() != 1){
+  				for(int z=0; z<j; z++){
+  					if(metric_function == 0){ //euclidean
+  						min.push_back(euclidean(v[i].getCoordinates(),centroids[z].getCoordinates()));
+  					} else if(metric_function == 1){ //cosine
+  						min.push_back(cosine(v[i].getCoordinates(),centroids[z].getCoordinates()));
+  					}
+  				}
+  				sort(min.begin(),min.end());
+  				D.push_back(min[0]);
+  				min.clear();
+  	  		}
   		}
-  	}
+  		sort(D.begin(),D.end());
+  		D.back(); //max value elem
+  		D.clear();
 
-  	for (int i = 0; i < v.size(); ++i)
-  	{   
-  		cout << "MY ID: " << v[i].getID() << " and my euclidean_distance is: " ;
-  		cout <<	cosine(v[i].getCoordinates(),centroids[0].getCoordinates()) << endl ;
 
   	}
 
-  	cout << "centroids id: " << centroids[0].getID() << endl;
-
+ 
   	return centroids;
 
 } 
