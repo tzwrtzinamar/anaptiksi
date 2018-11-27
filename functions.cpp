@@ -17,12 +17,45 @@ int point::getFlag(){
 	return flag;
 }
 
+void point::setassigned(int a){
+	assigned = a;
+}
+
+int point::getassigned(){
+	return assigned;
+}
+
+void point::setbelong(int b){
+	belong = b;
+}
+
+int point::getbelong(){
+	return belong;
+}
+
 void point::setCoordinates(vector<long double> p){
 	coordinates.assign(p.begin(),p.end());
 }
 
 vector<long double> point::getCoordinates(){
 	return coordinates;
+}
+
+//class cluster:functions
+void cluster::setCentroid(point mypoint){
+	centroid = mypoint;
+}
+
+point cluster::getCentroid(){
+	return centroid;
+}
+
+void cluster::setCluster_points(vector<point> cp){
+	cluster_points.assign(cp.begin(),cp.end());
+}
+
+vector<point> cluster::getCluster_points(){
+	return cluster_points;
 }
 
 //Read CSV and Store it in a vector of points
@@ -38,6 +71,7 @@ vector<point> read_n_store(string filename){
 		stringstream ss ( line );
 		point mypoint;
 		mypoint.setFlag(0);
+		mypoint.setassigned(0);
 		getline(ss,line,',');
 		mypoint.setID(atoi(line.c_str()));
 		while(getline(ss,line,',')){
@@ -90,7 +124,8 @@ vector<point> random_init(int k_cluster,vector<point> v){
 	 	temp = distr(eng);
         for(int i=0; i<v.size(); i++){
   			if(v[i].getID() == temp){
-  			  centroids.push_back(v[i]);
+  				v[i].setFlag(1);
+  				centroids.push_back(v[i]);
   			}
   		}
     }
@@ -105,36 +140,117 @@ vector<point> kmeans_init(int k_cluster,vector<point> v,int metric_function){
 	vector<point> centroids;
 	vector<long double> min;
 	vector<long double> D;
-	int temp=0,counter=1;
-	random_device rd; 
-    mt19937 eng(rd()); 
-    uniform_int_distribution<> distr(1,v.size());
-    temp = distr(eng);
+	long double distance = 0.0,pos = 0.0,sum = 0.0;
+	int temp=0,counter=0;
+	random_device rd;
+ 	mt19937 eng(rd());
+  	uniform_int_distribution<> distr(1,v.size());
+  	temp = distr(eng);
   	v[temp].setFlag(1);
   	centroids.push_back(v[temp]);
-  	for(int j=1; j<k_cluster; j++){
-  		for(int i=0; i<v.size(); i++){
-  			if(v[i].getFlag() != 1){
-  				for(int z=0; z<j; z++){
-  					if(metric_function == 0){ //euclidean
-  						min.push_back(euclidean(v[i].getCoordinates(),centroids[z].getCoordinates()));
-  					} else if(metric_function == 1){ //cosine
-  						min.push_back(cosine(v[i].getCoordinates(),centroids[z].getCoordinates()));
-  					}
-  				}
-  				sort(min.begin(),min.end());
-  				D.push_back(min[0]);
-  				min.clear();
-  	  		}
-  		}
-  		sort(D.begin(),D.end());
-  		D.back(); //max value elem
-  		D.clear();
+	srand((unsigned)time(NULL));
+	for(int k=1; k<k_cluster; k++){
+		for(int j=0; j<v.size(); j++){
+			if (v[j].getFlag() != 1){
+				for(int i=0; i<centroids.size(); i++){
+					if(metric_function == 0){
+						distance = pow(euclidean(centroids[i].getCoordinates(),v[j].getCoordinates()),2);
+						min.push_back(distance);
+					}else{
+						distance = pow(cosine(centroids[i].getCoordinates(),v[j].getCoordinates()),2);
+						min.push_back(distance);
+					}
+				}
+				sort(min.begin(),min.end());
+				sum += min[0];
+				D.push_back(sum);
+				min.clear();
+			}
+		}
+		for(int i=0; i<D.size(); i++){
+				D.at(i) = D[i]/D.back();
+		}
+		pos = ((double)rand()/(double) (RAND_MAX+1.0));
+		for(int i=0; i<D.size(); i++){
+			if(pos<D[i]){
+				v[i].setFlag(1);
+				centroids.push_back(v[i]);
+				break;
+			}
+		}
+		sum = 0.0;
+		D.clear();
+	}
+
+  return centroids;
+
+}
 
 
-  	}
+//Lloyd's assignement
+vector<cluster> make_clusters(vector<point> centroids){
+	vector<cluster> c;
+	for(int i=0; i<centroids.size(); i++){
+		cluster mycluster;
+		mycluster.setCentroid(centroids[i]);
+		c.push_back(mycluster);
+	}
+	return c;
+}
 
- 
-  	return centroids;
+void Lloyds(vector<point> v,vector<cluster> c,int metric_function){
+	int id=0,x,counter=0;
+	long double distance = 0.0 , min = 0.0;
+	vector<long double> min_distance;
+	vector<point> assignement;
+	for(int i=0; i<v.size(); i++){
+		if(v[i].getFlag() != 1){
+			for(int j=0; j<c.size(); j++){
+				if(metric_function == 0){
+					distance = euclidean(v[i].getCoordinates(),c[j].getCentroid().getCoordinates());
+					min_distance.push_back(distance);
+				}else{
+					distance = cosine(v[i].getCoordinates(),c[j].getCentroid().getCoordinates());
+					min_distance.push_back(distance);
+				}
+			}
+			min = min_distance[0];
+			for(x=0; x<min_distance.size(); x++){
+				if(min_distance[x] <= min){
+					min = min_distance[x];
+					id = x;
+				}
+			}
+			v[i].setassigned(1);
+			v[i].setbelong(id);
+			min_distance.clear();
+		}
+	}
 
-} 
+	for(int i=0; i<c.size(); i++){
+		for(int j=0; j<v.size(); j++){
+			if(v[j].getbelong() == i){
+				assignement.push_back(v[j]);
+			}
+		}
+		c[i].setCluster_points(assignement);
+		assignement.clear();
+	}
+
+}
+
+
+//Lloyd's update
+
+void cluster_mean(vector<cluster> c){
+	int counter=0;
+	for(int i=0; i<c.size(); i++){
+		for(int j=0; j<c[i].getCluster_points().size(); j++){
+			for(int z=0; z<c[i].getCluster_points().getCoordinates().size(); z++){
+				counter++;
+			}
+		}break;
+	}
+cout << counter ;
+
+}
